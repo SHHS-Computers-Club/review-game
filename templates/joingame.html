@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.5/socket.io.min.js"></script>
+    <script type="text/javascript" charset="utf-8">
+      var onStartGame = function(socket) {
+        $('body').empty().append($('<div/>').html('The game has started!'));
+      };
+      var onJoinGame = function(socket, answer) {
+        if(answer.success) {
+          $('body').empty().append($('<div/>').html('Waiting for the game to start...'));
+          socket.on('start', function() {
+            onStartGame(socket);
+          });
+        } else {
+          $('#joingame_err').html(answer.error);
+        }
+      };
+      $(document).ready(function() {
+        var socket = io();
+        $('form#joingame').submit(function(event) {
+          socket.emit('joingame', {gameid: $('#gamecode').val(), username: $('#username').val()}, function(answer) {
+            onJoinGame(socket, answer);
+          });
+          event.preventDefault();
+        });
+      });
+    </script>
+    <title>JOIN AN EMPFAHL GAME</title>
+  </head>
+  <body>
+    <h1>ENTER YOUR GAME CODE AND USERNAME SO WE CAN START ALREADY</h1>
+    <form id="joingame" action="#" method="post">
+      Gamecode: <input id="gamecode" type="text"><br>
+      Username: <input id="username" type="text"><br>
+      <input type="submit" value="JOIN THIS GAME!!">
+      <p id="joingame_err" style="color:red;"></p>
+    </form>
+    <a href="{{ url_for('index') }}">BACK TO HOME</a>
+  </body>
+</html>
