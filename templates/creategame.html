@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.5/socket.io.min.js"></script>
+    <script type="text/javascript" charset="utf-8">
+      var onStartGame = function(socket, answer) {
+        $('form#startgame').after($('<div/>').html('The game has started!')).remove();
+        // ?!?
+      };
+      var onCreateGame = function(socket, answer) {
+        if(answer.success) {
+          document.title = 'DASHBOARD FOR GAME ' + answer.gameid.toString();
+          $('body').empty().append(
+            $('<div/>').html('The EMPFAHL gamecode is ' + answer.gameid.toString() + '.'),
+            $('<form/>', {'id': 'startgame', 'action': '#', 'method': 'post'}).append(
+              $('<input/>', {'type': 'submit', 'value': 'START THE GAME!!'})),
+            $('<div/>', {'id': 'userlist'}).html('Users:'));
+          $('form#startgame').submit(function(event) {
+            socket.emit('startgame', {gameid: answer.gameid}, function(answer) {
+              onStartGame(socket, answer);
+            });
+            event.preventDefault();
+          });
+        } else {
+          $('#questions_err').html(answer.error);
+        }
+      };
+      $(document).ready(function() {
+        var socket = io();
+        $('form#questions').submit(function(event) {
+          socket.emit('creategame', {data: $('#questions_data').val()}, function(answer) {
+            onCreateGame(socket, answer);
+          });
+          event.preventDefault();
+        });
+        socket.on('join', function(data) {
+          $('#userlist').append($('<div/>').html(data.username));
+        });
+      });
+    </script>
+    <title>CREATE YOUR EMPFAHL GAME</title>
+  </head>
+  <body>
+    <h1>ENTER SOME QUESTIONS SO YOUR STUDENTS CAN STOP SCREAMING ALREADY</h1>
+    <form id="questions" action="#" method="post">
+      Questions (have one question on each line, and separate the question and answer with &gt;|&lt;):<br>
+      <textarea id="questions_data" style="width:100%" rows=15>Is this example good?&gt;|&lt;This example is very good.
+What about this one?&gt;|&lt;Only pretty good.</textarea><br>
+      <input type="submit" value="CREATE MY GAME!">
+      <p id="questions_err" style="color: red;"></p>
+    </form>
+    <a href="{{ url_for('index') }}">BACK TO HOME</a>
+  </body>
+</html>
