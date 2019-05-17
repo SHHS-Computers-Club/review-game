@@ -144,7 +144,7 @@ def answer_question(message):
     else:
       running_games[n]['users'][message['username']] -= 2
       emit('changescore', {'username': message['username'], 'amount': -2}, room=f'game {n}')
-      return {'success': False, 'answer': q.answer}
+      return {'success': False, 'correctanswer': q.answer}
   except KeyError:
     pass
 
