@@ -1,6 +1,6 @@
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit, join_room
-from random import randint
+from random import choice, randint, sample
 
 # Initialize the Flask app object, using __name__ to tell Flask where to find the program's resources
 app = Flask(__name__)
@@ -13,17 +13,16 @@ class Question():
     self.question = question
     self.answer = answer
 
-class User():
-  def __init__(self, username):
-    self.username = username
-    self.points = 0
-
 #Keep a running dictionary of all of the games on the server so that we can reference them later
 """Structure is
 {
   gameId: {
-    'questions': [questions],
-    'users': [users]
+    'questions': {
+      qid: Question
+    },
+    'users': {
+      username: points
+    }
   }
 }
 """
@@ -69,9 +68,11 @@ def create_game(message):
       n = randint(0, 65535)
       if n not in running_games:
         break
-    running_games[n] = {'questions': qs, 'users': []}
+    ns = sample(range(1, 10000000), len(qs))
+    qdict = dict(zip(ns, qs))
+    running_games[n] = {'questions': qdict, 'users': {}}
     print(f'Creating game {n}')
-    join_room(f'game {n}');
+    join_room(f'game {n}')
     return {'success': True, 'gameid': n}
   else:
     return {'success': False, 'error': 'Your questions are weak and invalid.'}
@@ -92,11 +93,11 @@ def join_game(message):
       if n in running_games:
         username = message['username']
         if username:
-          if username not in [user.username for user in running_games[n]['users']]:
+          if username not in running_games[n]['users'].keys():
             print(f'Connecting user {username} to game {n}')
-            running_games[n]['users'].append(User(username))
+            running_games[n]['users'][username] = 0
             emit('join', {'username': username}, room=f'game {n}')
-            join_room(f'game {n}');
+            join_room(f'game {n}')
             return {'success': True, 'gameid': n, 'username': username}
           else:
             return {'success': False, 'error': 'That username is already taken. Try harder.'}
@@ -116,6 +117,36 @@ def start_game(message):
   n = message['gameid']
   print(f'Starting game {n}')
   emit('start', room=f'game {n}')
+
+# Triggered when the client sends a getquestion signal (sent from templates/joingame.html when the game starts or when the user presses the NEXT QUESTION button)
+# Gives the client the next question to display as well as the user's score
+@socketio.on('getquestion')
+def get_question(message):
+  n = message['gameid']
+  game = running_games[n]
+  qid, q = choice(list(game['questions'].items()))
+  score = game['users'][message['username']]
+  return {'question': q.question, 'qid': qid, 'score': score}
+
+# Triggered when the client sends an answerquestion signal (sent from templates/joingame.html when the user presses the SUBMIT ANSWER button)
+# Gives the client the correct answer to the question and whether the user-submitted answer was correct
+# Alerts the dashboard to update scores and updates scores internally
+@socketio.on('answerquestion')
+def answer_question(message):
+  n = message['gameid']
+  game = running_games[n]
+  try:
+    q = game['questions'][message['qid']]
+    if message['answer'] == q.answer:
+      running_games[n]['users'][message['username']] += 1
+      emit('changescore', {'username': message['username'], 'amount': 1}, room=f'game {n}')
+      return {'success': True}
+    else:
+      running_games[n]['users'][message['username']] -= 2
+      emit('changescore', {'username': message['username'], 'amount': -2}, room=f'game {n}')
+      return {'success': False, 'answer': q.answer}
+  except KeyError:
+    pass
 
 # Runs the app from the server and settles socket.io connections
 # Can also take the "host" and "port" arguments
