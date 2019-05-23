@@ -112,11 +112,20 @@ def join_game(message):
 
 # Triggered when the client sends a startgame signal (sent from templates/creategame.html when the user presses the START THIS GAME!! button)
 # Broadcasts the start signal to the socket.io room for that game
+# Gives countdown updates to the dashboard and broadcasts the end signal when the 10 minutes are over
 @socketio.on('startgame')
 def start_game(message):
+  def countdown(count, n):
+    if count <= 0:
+      socketio.emit('end', room=f'game {n}')
+      return
+    socketio.emit('timer', {'countdown': count}, room=f'game {n}')
+    socketio.sleep(1)
+    countdown(count-1, n)
   n = message['gameid']
   print(f'Starting game {n}')
   emit('start', room=f'game {n}')
+  socketio.start_background_task(countdown, 60 * 10, n)
 
 # Triggered when the client sends a getquestion signal (sent from templates/joingame.html when the game starts or when the user presses the NEXT QUESTION button)
 # Gives the client the next question to display as well as the user's score
@@ -147,6 +156,15 @@ def answer_question(message):
       return {'success': False, 'correctanswer': q.answer}
   except KeyError:
     pass
+
+# Triggered when the client sends a checkscore signal (sent from templates/joingame.html when the game ends)
+# Looks up the given game ID and username and returns the user's score
+@socketio.on('checkscore')
+def checkscore(message):
+  n = message['gameid']
+  username = message['username']
+  game = running_games[n]
+  return {'score': game['users'][username]}
 
 # Runs the app from the server and settles socket.io connections
 # Can also take the "host" and "port" arguments
