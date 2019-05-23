@@ -8,14 +8,14 @@
       var onSubmitAnswer = function(socket, gameid, qid, username) {
         socket.emit('answerquestion', {'gameid': gameid, 'qid': qid, 'username': username, 'answer': $('#useranswer').val()}, function(answer) {
           if (answer.success) {
-            $('body').empty().append($('<div/>').html('Correct!'),
+            $('body').empty().append($('<div/>').text('Correct!'),
               $('<input/>', {'id': 'nextquestion', 'type': 'button', 'value': 'NEXT QUESTION'}));
             $('#nextquestion').click(function() {
               $('body').empty();
               loadGamePage(socket, gameid, username);
             });
           } else {
-            $('body').empty().append($('<div/>').html('Nope sorry, the correct answer was "' + answer.correctanswer + '".'),
+            $('body').empty().append($('<div/>').text('Nope sorry, the correct answer was "' + answer.correctanswer + '".'),
               $('<input/>', {'id': 'nextquestion', 'type': 'button', 'value': 'NEXT QUESTION'}));
             $('#nextquestion').click(function() {
               $('body').empty();
@@ -26,11 +26,11 @@
       };
       var loadGamePage = function(socket, gameid, username) {
         socket.emit('getquestion', {'gameid': gameid, 'username': username}, function(answer) {
-          $('body').append($('<div/>').html(answer.question),
+          $('body').append($('<div/>').text(answer.question),
             $('<form/>').append(
               $('<input/>', {'id': 'useranswer', 'type': 'text'}),
               $('<input/>', {'id': 'answerquestion', 'type': 'button', 'value': 'SUBMIT ANSWER'})),
-            $('<div/>').html('Score: ' + answer.score));
+            $('<div/>').text('Score: ' + answer.score));
           $('#answerquestion').click(function() {
             onSubmitAnswer(socket, gameid, answer.qid, username);
           });
@@ -38,13 +38,21 @@
       };
       var onJoinGame = function(socket, answer) {
         if(answer.success) {
-          $('body').empty().append($('<div/>').html('Waiting for the game to start...'));
+          $('body').empty().append($('<div/>').text('Waiting for the game to start...'));
           socket.on('start', function() {
-            $('body').empty().append($('<div/>').html('The game has started!'));
+            $('body').empty().append($('<div/>').text('The game has started!'));
             loadGamePage(socket, answer.gameid, answer.username);
+            socket.on('end', function() {
+              $('body').empty()
+              socket.emit('checkscore', {'gameid': answer.gameid, 'username': answer.username}, function(answer) {
+                $('body').append(
+                  $('<div/>').text('The game of EMPFAHL has ended!'),
+                  $('<div/>').text('You collected ' + answer.score + ' points!'));
+              });
+            });
           });
         } else {
-          $('#joingame_err').html(answer.error);
+          $('#joingame_err').text(answer.error);
         }
       };
       $(document).ready(function() {
