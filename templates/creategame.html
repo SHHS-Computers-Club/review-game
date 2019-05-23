@@ -5,27 +5,48 @@
     <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.5/socket.io.min.js"></script>
     <script type="text/javascript" charset="utf-8">
+      var displayTime = function(secs) {
+        function zeroPad(n) {
+          s = n.toString()
+          var zeros = Math.max(0, 2 - s.length);
+          return '0'.repeat(zeros) + s;
+        }
+        var minutes = Math.floor(secs/60);
+        var seconds = secs % 60;
+        return zeroPad(minutes) + ':' + zeroPad(seconds);
+      };
       var onStartGame = function(socket) {
-        $('form').after($('<div/>').html('The game has started!')).remove();
+        $('#startgame').after(
+          $('<div/>', {'id': 'started'}).text('The game has started!'),
+          $('<div/>', {'id': 'countdown'})).remove();
         socket.on('changescore', function(data) {
-          $score = $('td').filter(function() {return this.innerHTML === data.username}).next();
-          $score.html(parseInt($score.html()) + data.amount);
+          $score = $('td').filter(function() {
+            return this.innerHTML === data.username
+          }).next();
+          $score.text(parseInt($score.text()) + data.amount);
+        });
+        socket.on('timer', function(data) {
+          $('#countdown').text(displayTime(data.countdown) + ' left!');
+        });
+        socket.on('end', function() {
+          $('#started').remove();
+          $('#countdown').remove();
+          $('#gamecode').after($('<div/>').text('The game of EMPFAHL has ended!'));
         });
       };
       var onCreateGame = function(socket, answer) {
         if(answer.success) {
           document.title = 'DASHBOARD FOR GAME ' + answer.gameid.toString();
           $('body').empty().append(
-            $('<div/>').html('The EMPFAHL gamecode is ' + answer.gameid.toString() + '.'),
-            $('<form/>').append(
-              $('<input/>', {'type': 'button', 'id': 'startgame', 'value': 'START THE GAME!!'})),
+            $('<div/>', {'id': 'gamecode'}).text('The EMPFAHL gamecode is ' + answer.gameid.toString() + '.'),
+            $('<input/>', {'id': 'startgame', 'type': 'button', 'value': 'START THE GAME!!'}),
             $('<table/>', {'id': 'userlist'}).append($('<tr/>').append(
-              $('<th/>').html('Username'),
-              $('<th/>').html('Score'))));
+              $('<th/>').text('Username'),
+              $('<th/>').text('Score'))));
           socket.on('join', function(data) {
             $('#userlist').append($('<tr/>').append(
-              $('<td/>').html(data.username),
-              $('<td/>').html('0')));
+              $('<td/>').text(data.username),
+              $('<td/>').text('0')));
           });
           $('#startgame').click(function() {
             socket.emit('startgame', {gameid: answer.gameid}, function() {
@@ -33,7 +54,7 @@
             });
           });
         } else {
-          $('#questions_err').html(answer.error);
+          $('#questions_err').text(answer.error);
         }
       };
       $(document).ready(function() {
